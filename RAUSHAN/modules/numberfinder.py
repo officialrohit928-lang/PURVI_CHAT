@@ -12,36 +12,42 @@ API_URL = "https://tg-2-num-api-org.vercel.app/api/search?userid="
 async def search_user(client, message: Message):
 
     if len(message.command) < 2:
-        return await message.reply_text(
-            "❌ Usage:\n/search 123456789"
-        )
+        return await message.reply_text("❌ Usage:\n/search 123456789")
 
     user_id = message.command[1]
-
     msg = await message.reply_text("🔎 Searching... Please wait")
 
     try:
         response = requests.get(API_URL + user_id, timeout=10)
-        data = response.json()
+        result = response.json()
 
-        country = data.get("country", "India (+91)")
-        number = data.get("number", "Not Found")
-        expiry = data.get("expiry", "April 6, 2026")
-        remaining = data.get("remaining", "Unknown")
-        balance = data.get("balance", "9")
+        if result.get("status") != "success":
+            return await msg.edit_text("❌ API Failed")
+
+        data = result.get("data", {})
+        validity = result.get("validity", {})
+
+        if not data.get("found"):
+            return await msg.edit_text("❌ Number Not Found")
+
+        country = data.get("country")
+        code = data.get("country_code")
+        number = data.get("number")
+
+        expiry = validity.get("expires_on")
+        days = validity.get("days_remaining")
+        hours = validity.get("hours_remaining")
 
         await msg.edit_text(f"""
 ✅ Search Results
 
-🌍 Country: {country}
+🌍 Country: {country} ({code})
 📞 Number: {number}
 
 ⏳ Validity Info:
 📅 Expires on: {expiry}
-🕒 Remaining: {remaining}
-
-💰 Your balance: {balance} credits
+🕒 Remaining: {days} days, {hours} hours
 """)
 
-    except Exception as e:
-        await msg.edit_text("❌ API Error or Invalid User ID")
+    except Exception:
+        await msg.edit_text("❌ API Error")
